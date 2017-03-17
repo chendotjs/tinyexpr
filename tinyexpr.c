@@ -134,6 +134,49 @@ static double fac(double a) {/* simplest version of fac */
     return (double)result;
 }
 
+/* position in an array, index from 0 */
+#define Triangle(n, r) (((n) * ((n) + 1) / 2) + r)
+
+static double ncr(double a, double b) {
+    if (a < 0.0 || b < 0.0 || a < b)
+        return NAN;
+    if (a > UINT_MAX || b > UINT_MAX)
+        return INFINITY;
+    unsigned int ua = (unsigned int)(a);
+    unsigned int ub = (unsigned int)(b);
+    unsigned int i, j;
+    
+    unsigned long *triangle;
+    triangle = malloc(sizeof(long) * Triangle(ua + 1, 0));
+    if (!triangle) {
+        return INFINITY;
+    }
+    triangle[Triangle(0, 0)] = 1; /* C(0, 0) = 1 */
+    
+    for (i = 1; i <= ua; i++) {
+        triangle[Triangle(i, 0)] = triangle[Triangle(i, i)] = 1; /* C(i, 0) = C(i, i) = 1 */
+        for (j = 1; j < i; j++) {
+            if (triangle[Triangle(i - 1, j - 1)] > ULONG_MAX - triangle[Triangle(i - 1, j)]\
+                || triangle[Triangle(i - 1, j - 1)] == 0 || triangle[Triangle(i - 1, j)] == 0)
+                triangle[Triangle(i, j)] = 0; /* out of ulong range */
+            else
+                triangle[Triangle(i, j)] = triangle[Triangle(i - 1, j - 1)] + triangle[Triangle(i - 1, j)];
+        }
+    }
+    /* ulong to double causes loss */
+    double result = triangle[Triangle(ua, ub)] == 0 ? INFINITY : triangle[Triangle(ua, ub)];
+    long bias = triangle[Triangle(ua, ub)] - (unsigned long)result;
+    if (bias > 1 || bias < -1)
+        result = INFINITY;
+    free(triangle);
+    return result;
+}
+
+static double npr(double a, double b) {
+    return ncr(a, b) * fac(b);
+}
+
+
 static const te_variable functions[] = {
     /* must be in alphabetical order */
     {"abs", fabs,     TE_FUNCTION1 | TE_FLAG_PURE, 0},
@@ -155,6 +198,8 @@ static const te_variable functions[] = {
     {"log", log10,    TE_FUNCTION1 | TE_FLAG_PURE, 0},
 #endif
     {"log10", log10,  TE_FUNCTION1 | TE_FLAG_PURE, 0},
+    {"ncr", ncr,      TE_FUNCTION2 | TE_FLAG_PURE, 0},
+    {"npr", npr,      TE_FUNCTION2 | TE_FLAG_PURE, 0},
     {"pi", pi,        TE_FUNCTION0 | TE_FLAG_PURE, 0},
     {"pow", pow,      TE_FUNCTION2 | TE_FLAG_PURE, 0},
     {"sin", sin,      TE_FUNCTION1 | TE_FLAG_PURE, 0},
