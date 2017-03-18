@@ -52,6 +52,20 @@ For log = natural log uncomment the next line. */
 
 typedef double (*te_fun2)(double, double);
 
+
+typedef struct te_ncr_cache {
+    unsigned long *data;
+    unsigned long n;
+    unsigned long r;
+} te_ncr_cache;
+
+te_ncr_cache ncr_cache = {
+  .data = NULL,
+  .n = 0,
+  .r = 0
+};
+
+
 enum {
     TOK_NULL = TE_CLOSURE7+1, TOK_ERROR, TOK_END, TOK_SEP,
     TOK_OPEN, TOK_CLOSE, TOK_NUMBER, TOK_VARIABLE, TOK_INFIX
@@ -118,6 +132,7 @@ void te_free_pr(te_expr *n) {
 }
 
 void te_free(te_expr *n) {
+    free(ncr_cache.data);
     te_free_pr(n);
 }
 
@@ -149,30 +164,41 @@ static double ncr(double a, double b) {
     unsigned int ua = (unsigned int)(a);
     unsigned int ub = (unsigned int)(b);
     unsigned int i, j;
+    double result = -1;
 
-    unsigned long *triangle;
-    triangle = malloc(sizeof(long) * Triangle(ua + 1, 0));
-    if (!triangle) {
-        return INFINITY;
-    }
-    triangle[Triangle(0, 0)] = 1; /* C(0, 0) = 1 */
+    unsigned long *triangle = ncr_cache.data;
 
-    for (i = 1; i <= ua; i++) {
-        triangle[Triangle(i, 0)] = triangle[Triangle(i, i)] = 1; /* C(i, 0) = C(i, i) = 1 */
-        for (j = 1; j < i; j++) {
-            if (triangle[Triangle(i - 1, j - 1)] > ULONG_MAX - triangle[Triangle(i - 1, j)]\
-                || triangle[Triangle(i - 1, j - 1)] == 0 || triangle[Triangle(i - 1, j)] == 0)
-                triangle[Triangle(i, j)] = 0; /* out of ulong range */
-            else
-                triangle[Triangle(i, j)] = triangle[Triangle(i - 1, j - 1)] + triangle[Triangle(i - 1, j)];
+    #if 1
+    if (!ncr_cache.data || ua > ncr_cache.n || (ua >= ncr_cache.n && ub > ncr_cache.r)) { /* need to allocate memory */
+        if ((ncr_cache.data = realloc(ncr_cache.data, sizeof(unsigned long) * Triangle(ua + 1, 1))) == NULL) { /* realloc fail */
+            ncr_cache.data = triangle;
+            triangle = NULL;
+            return INFINITY;
+        } else { /* realloc success, update memorandum */
+            triangle =  ncr_cache.data;
+           
+            triangle[Triangle(0, 0)] = 1; /* C(0, 0) = 1 */
+    
+            for (i = ncr_cache.n > 1 ? ncr_cache.n : 1; i <= ua; i++) {
+                triangle[Triangle(i, 0)] = triangle[Triangle(i, i)] = 1; /* C(i, 0) = C(i, i) = 1 */
+                for (j = 1; j < i; j++) {
+                    if (triangle[Triangle(i - 1, j - 1)] > ULONG_MAX - triangle[Triangle(i - 1, j)]\
+                      || triangle[Triangle(i - 1, j - 1)] == 0 || triangle[Triangle(i - 1, j)] == 0)
+                        triangle[Triangle(i, j)] = 0; /* out of ulong range */
+                    else
+                        triangle[Triangle(i, j)] = triangle[Triangle(i - 1, j - 1)] + triangle[Triangle(i - 1, j)];
+                }
+            }
+            ncr_cache.n = ua;
+            ncr_cache.r = ub;
         }
     }
     /* ulong to double causes loss */
-    double result = triangle[Triangle(ua, ub)] == 0 ? INFINITY : triangle[Triangle(ua, ub)];
+    result = triangle[Triangle(ua, ub)] == 0 ? INFINITY : triangle[Triangle(ua, ub)];
     long bias = triangle[Triangle(ua, ub)] - (unsigned long)result;
     if (bias > 1 || bias < -1)
         result = INFINITY;
-    free(triangle);
+    #endif
     return result;
 }
 
@@ -623,6 +649,11 @@ te_expr *te_compile(const char *expression, const te_variable *variables, int va
     s.start = s.next = expression;
     s.lookup = variables;
     s.lookup_len = var_count;
+
+    ncr_cache.data = NULL;
+    ncr_cache.n = 0;
+    ncr_cache.r = 0;
+
 
     next_token(&s);
     te_expr *root = list(&s);
