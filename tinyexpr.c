@@ -95,27 +95,31 @@ static te_expr *new_expr(const int type, const te_expr *parameters[]) {
     return ret;
 }
 
+void te_free_pr(te_expr *n);
 
 void te_free_parameters(te_expr *n) {
     if (!n) return;
     switch (TYPE_MASK(n->type)) {
-        case TE_FUNCTION7: case TE_CLOSURE7: te_free(n->parameters[6]);
-        case TE_FUNCTION6: case TE_CLOSURE6: te_free(n->parameters[5]);
-        case TE_FUNCTION5: case TE_CLOSURE5: te_free(n->parameters[4]);
-        case TE_FUNCTION4: case TE_CLOSURE4: te_free(n->parameters[3]);
-        case TE_FUNCTION3: case TE_CLOSURE3: te_free(n->parameters[2]);
-        case TE_FUNCTION2: case TE_CLOSURE2: te_free(n->parameters[1]);
-        case TE_FUNCTION1: case TE_CLOSURE1: te_free(n->parameters[0]);
+        case TE_FUNCTION7: case TE_CLOSURE7: te_free_pr(n->parameters[6]);
+        case TE_FUNCTION6: case TE_CLOSURE6: te_free_pr(n->parameters[5]);
+        case TE_FUNCTION5: case TE_CLOSURE5: te_free_pr(n->parameters[4]);
+        case TE_FUNCTION4: case TE_CLOSURE4: te_free_pr(n->parameters[3]);
+        case TE_FUNCTION3: case TE_CLOSURE3: te_free_pr(n->parameters[2]);
+        case TE_FUNCTION2: case TE_CLOSURE2: te_free_pr(n->parameters[1]);
+        case TE_FUNCTION1: case TE_CLOSURE1: te_free_pr(n->parameters[0]);
     }
 }
 
 
-void te_free(te_expr *n) {
+void te_free_pr(te_expr *n) {
     if (!n) return;
     te_free_parameters(n);
     free(n);
 }
 
+void te_free(te_expr *n) {
+    te_free_pr(n);
+}
 
 static double pi() {return 3.14159265358979323846;}
 static double e() {return 2.71828182845904523536;}
@@ -145,14 +149,14 @@ static double ncr(double a, double b) {
     unsigned int ua = (unsigned int)(a);
     unsigned int ub = (unsigned int)(b);
     unsigned int i, j;
-    
+
     unsigned long *triangle;
     triangle = malloc(sizeof(long) * Triangle(ua + 1, 0));
     if (!triangle) {
         return INFINITY;
     }
     triangle[Triangle(0, 0)] = 1; /* C(0, 0) = 1 */
-    
+
     for (i = 1; i <= ua; i++) {
         triangle[Triangle(i, 0)] = triangle[Triangle(i, i)] = 1; /* C(i, 0) = C(i, i) = 1 */
         for (j = 1; j < i; j++) {
